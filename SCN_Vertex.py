@@ -8,6 +8,9 @@ from SCN import DeepVtx
 
 
 def Test(weights, x, y, z, q, dtype):
+    '''
+    IO test
+    '''
     print("python: Test")
     print("weights: ", weights)
     x = np.frombuffer(x, dtype=dtype)
@@ -49,9 +52,17 @@ def SCN_Vertex(weights, x, y, z, q, dtype):
     nIn = 1
     model = DeepVtx(dimension=3, nIn=nIn, device=device)
     model.train()
-    # model.load_state_dict(torch.load(weights))
-    model.load_state_dict(model.state_dict())
-    print(model)
+    trained_dict = torch.load(weights)
+
+    # torch 1.0.0 seems to have 3 dims for some tensors while 1.3.1 have 4 for them
+    # in that case dim=1 is an unsqueezed dim with size only 1
+    for param_tensor in trained_dict:
+        # print("current: ", param_tensor, "\t", model.state_dict()[param_tensor].shape)
+        # print("trained: ", param_tensor, "\t", trained_dict[param_tensor].shape)
+        if trained_dict[param_tensor].shape !=  model.state_dict()[param_tensor].shape:
+            trained_dict[param_tensor] = torch.squeeze(trained_dict[param_tensor], dim=1)
+        # print("squeezed: ", param_tensor, "\t", trained_dict[param_tensor].shape)
+    model.load_state_dict(trained_dict)
 
     prediction = model([coords,ft])
     print(prediction)
@@ -68,9 +79,9 @@ def SCN_Vertex(weights, x, y, z, q, dtype):
 if __name__ == '__main__':
     dtype = 'f'
     weights = '/lbne/u/hyu/lbne/uboone/t48k-m16-l5-lr5d-res0.5-CP24.pth'
-    x = np.array([1.1, 2.1, 3.1], dtype=dtype).tobytes()
-    y = np.array([1.1, 2.1, 3.1], dtype=dtype).tobytes()
-    z = np.array([1.1, 2.1, 3.1], dtype=dtype).tobytes()
-    q = np.array([1.0, 1.0, 1.0], dtype=dtype).tobytes()
+    x = np.array([00.0, 01.0, 02.0], dtype=dtype).tobytes()
+    y = np.array([10.0, 11.0, 12.0], dtype=dtype).tobytes()
+    z = np.array([20.0, 21.0, 22.0], dtype=dtype).tobytes()
+    q = np.array([1.0, 2.0, 3.0], dtype=dtype).tobytes()
 
     SCN_Vertex(weights, x, y, z, q, dtype)
