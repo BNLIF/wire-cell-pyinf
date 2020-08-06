@@ -30,7 +30,6 @@ def Test(weights, x, y, z, q, dtype):
     return vtx.tobytes()
 
 def voxelize(x, y, resolution=0.5) :
-    print(x)
     if len(x.shape) != 2:
         raise Exception('x should have 2 dims')
     
@@ -41,7 +40,6 @@ def voxelize(x, y, resolution=0.5) :
     
     # in unit of resolution
     x = x/resolution
-    print(x)
     
     # digitize
     x = x.astype(int)
@@ -81,60 +79,71 @@ def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5):
     q = np.frombuffer(q, dtype=dtype)
     coords_np = np.stack((x, y, z), axis=1)
     ft_np = np.expand_dims(q, axis=1)
-    print("coords: ", coords_np)
-    print(" ft: ", ft_np)
+    print("in: coords: ", coords_np.shape, coords_np.dtype)
+    print("in: ft: ", ft_np.shape, ft_np.dtype)
 
     coords_offset = coords_np.min(axis=0)
     coords_np, ft_np = voxelize(coords_np, ft_np, resolution=resolution)
-    print("coords: ", coords_np)
-    print(" ft: ", ft_np)
+    print("vox: coords: ", coords_np.shape, coords_np.dtype)
+    print("vox: ft: ", ft_np.shape, ft_np.dtype)
 
     torch.set_num_threads(1)
     device = 'cpu'
 
     coords = torch.LongTensor(coords_np)
     ft = torch.FloatTensor(ft_np).to(device)
-    print("coords: ", coords)
-    print(" ft: ", ft)
+    print("torch: coords: ", coords.shape)
+    print("torch: ft: ", ft.shape)
 
     nIn = 1
     model = DeepVtx(dimension=3, nIn=nIn, device=device)
     model.train()
-    trained_dict = torch.load(weights)
 
     # torch 1.0.0 seems to have 3 dims for some tensors while 1.3.1 have 4 for them
     # in that case dim=1 is an unsqueezed dim with size only 1
+    trained_dict = torch.load(weights)
     for param_tensor in trained_dict:
-        # print("current: ", param_tensor, "\t", model.state_dict()[param_tensor].shape)
-        # print("trained: ", param_tensor, "\t", trained_dict[param_tensor].shape)
         if trained_dict[param_tensor].shape !=  model.state_dict()[param_tensor].shape:
             trained_dict[param_tensor] = torch.squeeze(trained_dict[param_tensor], dim=1)
-        # print("squeezed: ", param_tensor, "\t", trained_dict[param_tensor].shape)
+    
     model.load_state_dict(trained_dict)
 
     prediction = model([coords,ft])
-    print(prediction)
+    print('torch: pred: ', prediction.shape)
     pred_np = prediction.cpu().detach().numpy()
     pred_np = pred_np[:,1] - pred_np[:,0]
-    print('pred_np', pred_np)
+    print('pred_idx', np.argmax(pred_np))
     
     pred_coord = coords_np[np.argmax(pred_np)]
-    print('pred_coord', pred_coord)
+    print('raw: pred_coord: ', pred_coord)
 
     pred_coord = pred_coord.astype(dtype)
     pred_coord *= resolution
     pred_coord += coords_offset + 0.5*resolution
-    print('pred_coord', pred_coord)
+    print('final: pred_coord', pred_coord)
 
     return pred_coord.tobytes()
 
 if __name__ == '__main__':
     dtype = 'float32'
     weights = '../wire-cell-pydata/scn_vtx/t48k-m16-l5-lr5d-res0.5-CP24.pth'
+
+    # simple sample
     x = np.array([00.0, 01.0, 02.0], dtype=dtype).tobytes()
     y = np.array([10.0, 11.0, 12.0], dtype=dtype).tobytes()
     z = np.array([20.0, 21.0, 22.0], dtype=dtype).tobytes()
     q = np.array([1.0, 2.0, 3.0], dtype=dtype).tobytes()
+
+    # simulation from nue-6972-54-2707.root
+    data = np.load('/lbne/u/hyu/lbne/uboone/wire-cell-pydata/scn_vtx/nuecc-sample.npz')
+    coords = data['coords'].astype(dtype)
+    ft = data['ft'].astype(dtype)
+    print('main: coords: ', coords.shape, coords.dtype)
+    print('main: ft: ', ft.shape, ft.dtype)
+    x = coords[:,0].tobytes()
+    y = coords[:,1].tobytes()
+    z = coords[:,2].tobytes()
+    q = ft[:,0].tobytes()
 
     vertex = SCN_Vertex(weights, x, y, z, q, dtype)
 
