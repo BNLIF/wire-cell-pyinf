@@ -70,7 +70,7 @@ def voxelize(x, y, resolution=0.5) :
     return coords, ft
 
 
-def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5):
+def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5, verbose=False):
     print("python: SCN_Vertex")
     print("weights: ", weights)
     x = np.frombuffer(x, dtype=dtype)
@@ -79,21 +79,21 @@ def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5):
     q = np.frombuffer(q, dtype=dtype)
     coords_np = np.stack((x, y, z), axis=1)
     ft_np = np.expand_dims(q, axis=1)
-    print("in: coords: ", coords_np.shape, coords_np.dtype)
-    print("in: ft: ", ft_np.shape, ft_np.dtype)
+    if verbose :
+        print("in: coords: ", coords_np.shape, coords_np.dtype)
+        print("in: ft: ", ft_np.shape, ft_np.dtype)
 
     coords_offset = coords_np.min(axis=0)
     coords_np, ft_np = voxelize(coords_np, ft_np, resolution=resolution)
-    print("vox: coords: ", coords_np.shape, coords_np.dtype)
-    print("vox: ft: ", ft_np.shape, ft_np.dtype)
+    if verbose :
+        print("vox: coords: ", coords_np.shape, coords_np.dtype)
+        print("vox: ft: ", ft_np.shape, ft_np.dtype)
 
     torch.set_num_threads(1)
     device = 'cpu'
 
     coords = torch.LongTensor(coords_np)
     ft = torch.FloatTensor(ft_np).to(device)
-    print("torch: coords: ", coords.shape)
-    print("torch: ft: ", ft.shape)
 
     nIn = 1
     model = DeepVtx(dimension=3, nIn=nIn, device=device)
@@ -109,18 +109,18 @@ def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5):
     model.load_state_dict(trained_dict)
 
     prediction = model([coords,ft])
-    print('torch: pred: ', prediction.shape)
     pred_np = prediction.cpu().detach().numpy()
     pred_np = pred_np[:,1] - pred_np[:,0]
-    print('pred_idx', np.argmax(pred_np))
     
     pred_coord = coords_np[np.argmax(pred_np)]
-    print('raw: pred_coord: ', pred_coord)
+    if verbose :
+        print('raw: pred_coord: ', pred_coord)
 
     pred_coord = pred_coord.astype(dtype)
     pred_coord *= resolution
     pred_coord += coords_offset + 0.5*resolution
-    print('final: pred_coord', pred_coord)
+    if verbose :
+        print('final: pred_coord', pred_coord)
 
     return pred_coord.tobytes()
 
