@@ -1,0 +1,6 @@
+pyinfdir=bld.path.parent.find_node("pyinf")
+pyfiles = set()
+for one in pyinfdir.ant_glob("**/*.py"):
+    pyfiles.add(one)
+pyfiles = list(pyfiles)
+bld.install_files('${PREFIX}/python', pyfiles, relative_trick=True)
