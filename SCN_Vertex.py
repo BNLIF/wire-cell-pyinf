@@ -101,7 +101,7 @@ def SCN_Vertex(weights, x, y, z, q, dtype='float32', resolution=0.5, verbose=Fal
 
     # torch 1.0.0 seems to have 3 dims for some tensors while 1.3.1 have 4 for them
     # in that case dim=1 is an unsqueezed dim with size only 1
-    trained_dict = torch.load(weights)
+    trained_dict = torch.load(weights, weights_only=True)
     for param_tensor in trained_dict:
         if trained_dict[param_tensor].shape !=  model.state_dict()[param_tensor].shape:
             trained_dict[param_tensor] = torch.squeeze(trained_dict[param_tensor], dim=1)
